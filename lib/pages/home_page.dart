@@ -1,11 +1,14 @@
 import 'dart:isolate';
-
 import 'package:algorithm_visualizer/algorithms/bubble_sort.dart';
 import 'package:algorithm_visualizer/algorithms/insertion_sort.dart';
+import 'package:algorithm_visualizer/algorithms/merge_sort.dart';
+import 'package:algorithm_visualizer/algorithms/quick_sort.dart';
+import 'package:algorithm_visualizer/algorithms/selection_sort.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'package:syncfusion_flutter_charts/sparkcharts.dart';
+import 'package:d_chart/d_chart.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,17 +24,24 @@ class _HomePageState extends State<HomePage> {
     'Selection Sort',
     'Quick Sort',
     'Merge Sort',
-    'Heap Sort'
   ];
 
-  //default data
+  // default data
   String chosenAlgorithm = "Bubble Sort";
   double speed = 100.0;
   int numOfInput = 30;
+  int numberOfOperations = 0;
 
+  // data
   List<num> generatedNumbers = [];
   List<num> chartData = [];
-  int numberOfOperations = 0;
+
+  // operations
+  int bubbleSortOp = 0;
+  int insertionSortOp = 0;
+  int selectionSortOp = 0;
+  int quickSortOp = 0;
+  int mergeSortOp = 0;
 
   // update the chart UI & operations
   updateChart(newData) {
@@ -39,6 +49,59 @@ class _HomePageState extends State<HomePage> {
       chartData = List.from(newData);
     });
     numberOfOperations++;
+    updateComparisonData(numberOfOperations);
+  }
+
+  // update comparison graph
+  updateComparisonData(operations) {
+    switch (chosenAlgorithm) {
+      case "Bubble Sort":
+        {
+          setState(() {
+            bubbleSortOp = numberOfOperations;
+          });
+        }
+        break;
+      case "Insertion Sort":
+        {
+          setState(() {
+            insertionSortOp = numberOfOperations;
+          });
+        }
+        break;
+      case "Selection Sort":
+        {
+          setState(() {
+            selectionSortOp = numberOfOperations;
+          });
+        }
+        break;
+      case "Quick Sort":
+        {
+          setState(() {
+            quickSortOp = numberOfOperations;
+          });
+        }
+        break;
+      case "Merge Sort":
+        {
+          setState(() {
+            mergeSortOp = numberOfOperations;
+          });
+        }
+        break;
+    }
+  }
+
+  // clear data
+  clearData() {
+    setState(() {
+      bubbleSortOp = 0;
+      insertionSortOp = 0;
+      selectionSortOp = 0;
+      quickSortOp = 0;
+      mergeSortOp = 0;
+    });
   }
 
   // generate random numbers and show them on chart
@@ -79,16 +142,22 @@ class _HomePageState extends State<HomePage> {
         }
         break;
       case "Selection Sort":
-        {}
+        {
+          await Isolate.spawn(
+              selectionSort, [receivePort.sendPort, chartData, speed]);
+        }
         break;
       case "Quick Sort":
-        {}
+        {
+          await Isolate.spawn(
+              quickSort, [receivePort.sendPort, chartData, speed]);
+        }
         break;
       case "Merge Sort":
-        {}
-        break;
-      case "Heap Sort":
-        {}
+        {
+          await Isolate.spawn(
+              mergeSort, [receivePort.sendPort, chartData, speed]);
+        }
         break;
     }
     receivePort.listen((newData) {
@@ -305,7 +374,7 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SizedBox(width: 180),
+                      const SizedBox(width: 50),
                       TextButton(
                         style: ButtonStyle(
                           foregroundColor:
@@ -351,6 +420,19 @@ class _HomePageState extends State<HomePage> {
                         },
                         child: const Text('Sort'),
                       ),
+                      const SizedBox(width: 20),
+                      TextButton(
+                        style: ButtonStyle(
+                          foregroundColor:
+                              MaterialStateProperty.all<Color>(Colors.white),
+                          backgroundColor:
+                              MaterialStateProperty.all<Color>(Colors.purple),
+                        ),
+                        onPressed: () {
+                          clearData();
+                        },
+                        child: const Text('Clear Data'),
+                      ),
                     ],
                   ),
                 ],
@@ -359,16 +441,59 @@ class _HomePageState extends State<HomePage> {
           ),
           Expanded(
             flex: 10,
-            child: Container(
-              color: Colors.grey,
-              width: MediaQuery.of(context).size.width,
-              child: (chartData.isEmpty)
-                  ? null
-                  : SfSparkBarChart(
-                      color: Colors.black,
-                      labelDisplayMode: SparkChartLabelDisplayMode.all,
-                      data: chartData,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    color: Colors.grey,
+                    width: MediaQuery.of(context).size.width,
+                    child: (chartData.isEmpty)
+                        ? null
+                        : SfSparkBarChart(
+                            color: Colors.black,
+                            labelDisplayMode: SparkChartLabelDisplayMode.all,
+                            data: chartData,
+                          ),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    color: Colors.white,
+                    child: DChartBar(
+                      xAxisTitle: "Number of Operations",
+                      verticalDirection: false,
+                      data: [
+                        {
+                          'id': 'Bar',
+                          'data': [
+                            {'domain': 'Bubble Sort', 'measure': bubbleSortOp},
+                            {
+                              'domain': 'Insertion Sort',
+                              'measure': insertionSortOp
+                            },
+                            {
+                              'domain': 'Selection Sort',
+                              'measure': selectionSortOp
+                            },
+                            {'domain': 'Quick Sort', 'measure': quickSortOp},
+                            {'domain': 'Merge Sort', 'measure': mergeSortOp},
+                          ],
+                        },
+                      ],
+                      domainLabelPaddingToAxisLine: 16,
+                      axisLineTick: 2,
+                      axisLinePointTick: 2,
+                      axisLinePointWidth: 10,
+                      axisLineColor: Colors.black,
+                      measureLabelPaddingToAxisLine: 16,
+                      barColor: (barData, index, id) => Colors.purple,
+                      showBarValue: true,
                     ),
+                  ),
+                )
+              ],
             ),
           ),
         ],
